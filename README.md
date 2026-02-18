@@ -1,205 +1,73 @@
-Audio Transcription Service
 
-Built with FastAPI + OpenAI Whisper
 
-1. Overview
 
-This project implements a RESTful API for audio transcription using FastAPI and OpenAI Whisper.
+ ## 🚀 Audio Transcription Service
 
-The service allows users to upload audio files and receive:
+  Built with FastAPI + OpenAI Whisper**
 
-Full transcription text
 
-Timestamped transcription segments
 
-The focus of the design was simplicity, correctness, and clean separation of responsibilities, while keeping scalability in mind.
+## 📌 Overview
 
-2. High-Level Architecture
+This project implements a RESTful audio transcription service using **FastAPI** and **OpenAI Whisper**. The API allows users to upload audio files and receive both the full transcript and timestamped segments. The goal of the design was to keep the system simple, reliable, and production-aware while maintaining clean architecture and good engineering practices.
 
-Client → FastAPI API → Audio Normalization (FFmpeg) → Whisper Model → JSON Response
 
-The system processes uploaded audio files, normalizes them to a standard format, transcribes them using Whisper, and returns structured results.
 
-3. Key Design Decisions
-3.1 Model Loading Strategy
+## 🧠 Model Loading Strategy
 
-The Whisper model is loaded once at application startup:
+The Whisper model is loaded once at application startup rather than per request. This significantly reduces request latency and prevents unnecessary reinitialization overhead. Loading the model globally ensures better performance and more efficient memory usage. For a production environment, this could be extended to GPU-based inference or deployed as a dedicated model inference service for improved scalability and performance.
 
-model = whisper.load_model("tiny")
 
 
-Reasoning:
+## 🎵 Audio Normalization
 
-Avoids loading the model per request
+Before transcription, every uploaded file is normalized using FFmpeg. The audio is converted to mono channel and resampled to 16kHz WAV format. This ensures consistent input quality for the Whisper model, improves transcription reliability, and avoids issues caused by inconsistent audio formats. Supporting multiple input formats (.wav, .mp3, .m4a, .mp4) while internally standardizing them enhances flexibility without sacrificing model stability.
 
-Reduces latency
 
-Improves performance
 
-For production:
+## 🗂 Temporary File Handling
 
-Larger model variants could be used
+Uploaded files are stored temporarily and cleaned up using a `finally` block. This guarantees that files are deleted even if an error occurs during processing. Unique filenames are generated using UUIDs to prevent conflicts during concurrent requests. This approach improves reliability and prevents disk space leaks, which is critical for long-running services.
 
-GPU acceleration could be enabled
 
-Model could run in a dedicated inference service
+## 🌐 API Design
 
-3.2 Audio Normalization
+The API follows RESTful principles and provides clear endpoints. A health check endpoint ensures the service is running, while dedicated endpoints handle uploading and transcription. The transcription endpoint returns both the full text and structured timestamp segments for better usability. FastAPI’s automatic OpenAPI documentation support improves developer experience and API clarity.
 
-Before transcription, audio is converted to:
 
-Mono channel (-ac 1)
+## ⚠️ Error Handling
 
-16kHz sample rate (-ar 16000)
+The system validates file formats before processing and returns meaningful HTTP error responses for unsupported inputs. Cleanup logic ensures temporary files are removed even when errors occur. While the current implementation focuses on functional correctness, production-level logging and monitoring would be added to enhance observability.
 
-WAV format
 
-This ensures:
 
-Consistent input to the Whisper model
+## 📈 Scalability Considerations
 
-Improved transcription stability
+Currently, transcription is processed synchronously within the request lifecycle. While this simplifies implementation, it can block requests under heavy load. In a production setting, transcription would be moved to a background task queue such as Celery with Redis or a message broker. The API would immediately return a job ID while processing occurs asynchronously. This approach improves responsiveness and allows horizontal scaling with multiple worker instances behind a load balancer.
 
-Compatibility across multiple input formats
 
-FFmpeg is used for reliability and format flexibility.
 
-3.3 Temporary File Handling
+## ☁️ Storage Strategy
 
-Uploaded files are stored temporarily and cleaned up in a finally block:
+For simplicity, files are stored locally during processing. In a production system, audio files would be stored in object storage such as AWS S3, while metadata and transcripts would be persisted in a relational database like PostgreSQL. This separation ensures durability, scalability, and efficient retrieval.
 
-Prevents disk space leaks
 
-Ensures cleanup even if errors occur
+## 🔐 Security Improvements
 
-Improves system reliability
+Future enhancements would include API authentication (JWT or API keys), rate limiting to prevent abuse, file size validation, and structured logging. These additions would ensure the system remains secure and resilient under real-world usage conditions.
 
-Unique filenames are generated using UUID to avoid collisions in concurrent requests.
 
-3.4 Supported Formats
 
-The system currently supports:
+## ⚖️ Trade-offs
 
-.wav
+The Whisper “tiny” model was selected to prioritize speed and low resource usage over maximum transcription accuracy. The synchronous processing model simplifies the implementation but limits scalability. Local file storage was chosen for development simplicity rather than production durability. These trade-offs were made intentionally to focus on clarity and core functionality.
 
-.mp3
 
-.m4a
 
-.mp4
+## ✅ Conclusion
 
-This is validated before processing to prevent unsupported inputs.
+This project demonstrates clean API design, responsible resource management, audio preprocessing best practices, and thoughtful scalability planning. While lightweight in implementation, the architecture can be extended into a fully production-ready system with background processing, cloud storage integration, and distributed deployment.
 
-3.5 API Design
 
-Endpoints:
 
-GET / – Health check
-
-POST /upload – Upload audio file
-
-POST /transcribe – Upload and transcribe audio
-
-The /transcribe endpoint returns:
-
-Full transcript text
-
-Structured timestamp segments
-
-The API is RESTful and leverages FastAPI’s automatic OpenAPI documentation.
-
-4. Error Handling
-
-The system includes:
-
-File format validation
-
-HTTP 400 responses for invalid inputs
-
-Guaranteed file cleanup
-
-Structured JSON responses
-
-For production systems, logging and monitoring would be added.
-
-5. Scalability Considerations (Future Improvements)
-
-Although the current implementation processes requests synchronously, the system can be scaled by:
-
-5.1 Background Processing
-
-Move transcription to a task queue such as:
-
-Celery + Redis
-
-RabbitMQ
-
-AWS SQS
-
-The API would:
-
-Accept upload
-
-Return a job ID
-
-Process transcription asynchronously
-
-This prevents request blocking and improves responsiveness.
-
-5.2 Horizontal Scaling
-
-Run multiple FastAPI workers (Gunicorn/Uvicorn)
-
-Deploy behind a load balancer
-
-Use containerization (Docker + Kubernetes)
-
-5.3 Storage Strategy
-
-In production:
-
-Store audio files in object storage (e.g., AWS S3)
-
-Store metadata and transcripts in PostgreSQL
-
-Use database indexing for efficient retrieval
-
-5.4 Security Improvements
-
-Planned production enhancements:
-
-JWT or API key authentication
-
-Rate limiting
-
-Request size limits
-
-Logging and monitoring
-
-Input sanitization
-
-6. Trade-offs
-
-Used Whisper “tiny” model for speed over accuracy.
-
-Processing is synchronous for simplicity.
-
-Local storage is used instead of cloud storage for development simplicity.
-
-These decisions prioritize clarity and simplicity for demonstration purposes.
-
-7. Conclusion
-
-This implementation demonstrates:
-
-Clean API design
-
-Proper resource handling
-
-Audio preprocessing best practices
-
-Structured transcription output
-
-Consideration for production scalability
-
-The system can be easily extended into a production-ready architecture with background processing, cloud storage, and distributed deployment.
+You’re very close to submitting something strong and professional.
